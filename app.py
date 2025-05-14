@@ -1,74 +1,52 @@
 import streamlit as st
 from textblob import TextBlob
-from datetime import datetime
 import random
 
-# Frases motivadoras
-frases_positivas = [
-    "🌞 Cada día es una nueva oportunidad para empezar de nuevo.",
-    "🌱 No te olvides de ser amable contigo mismo hoy.",
-    "💪 Incluso los pequeños pasos te acercan a tu meta.",
-    "🧠 Tu valor no depende de tu productividad.",
-    "🎨 Haz algo que te guste hoy, aunque sea solo respirar profundo."
+# Frases
+respuestas_tristeza = [
+    "💙 Siento que te sientas así. ¿Quieres contarme más?",
+    "🌧️ Es normal sentirse así a veces. Estoy contigo.",
+    "🫂 Aquí estoy, cuéntame lo que necesites."
+]
+respuestas_alegria = [
+    "😊 Me alegra mucho oír eso.",
+    "🎉 ¡Genial! Cuéntame más si quieres.",
+    "🌞 Me gusta verte así de bien."
+]
+respuestas_neutrales = [
+    "Gracias por compartirlo. ¿Qué más quieres contarme?",
+    "Estoy aquí escuchándote.",
+    "¿Y cómo te sientes con eso?"
 ]
 
-frases_tristeza = [
-    "🌤️ Aunque hoy esté nublado, el sol volverá a salir.",
-    "💙 Eres más fuerte de lo que crees.",
-    "📘 A veces solo necesitamos hablar para empezar a sanar."
-]
+# Inicializar historial si no existe
+if "chat" not in st.session_state:
+    st.session_state.chat = []
 
-frases_alegria = [
-    "🥳 ¡Sigue brillando!",
-    "✨ Me encanta tu energía positiva.",
-    "🌈 Qué bonito es compartir alegría."
-]
+# Título
+st.title("🧠 Chat emocional")
+st.write("Habla conmigo sobre lo que sientas:")
 
-# Registro de emociones
-def registrar_emocion(emocion, detalle=""):
-    with open("registro_emociones.txt", "a") as f:
-        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - {emocion} - {detalle}\n")
+# Mostrar historial de mensajes
+for mensaje in st.session_state.chat:
+    st.markdown(mensaje, unsafe_allow_html=True)
 
-# Interfaz
-st.title("🤖 Asistente emocional")
+# Entrada de usuario
+entrada = st.text_input("Escribe aquí y presiona Enter:")
 
-opcion = st.radio("¿En qué te gustaría que te ayudara hoy?", [
-    "Hablar sobre cómo me siento",
-    "Hacer un ejercicio de respiración",
-    "Recibir un consejo positivo"
-])
+if entrada:
+    # Mostrar mensaje del usuario
+    st.session_state.chat.append(f"<div style='color:blue'><b>Tú:</b> {entrada}</div>")
 
-# Opción 1
-if opcion == "Hablar sobre cómo me siento":
-    mensaje = st.text_input("Cuéntame cómo te sientes con tus propias palabras:")
-    if mensaje:
-        analisis = TextBlob(mensaje).sentiment
-        polaridad = analisis.polarity
+    # Analizar emoción
+    analisis = TextBlob(entrada).sentiment
+    if analisis.polarity < -0.2:
+        respuesta = random.choice(respuestas_tristeza)
+    elif analisis.polarity > 0.2:
+        respuesta = random.choice(respuestas_alegria)
+    else:
+        respuesta = random.choice(respuestas_neutrales)
 
-        if polaridad < -0.2:
-            st.write(random.choice(frases_tristeza))
-            registrar_emocion("triste", mensaje)
-        elif polaridad > 0.2:
-            st.write(random.choice(frases_alegria))
-            registrar_emocion("feliz", mensaje)
-        else:
-            st.write("Gracias por compartir cómo te sientes. Estoy aquí contigo.")
-            registrar_emocion("neutral", mensaje)
-
-# Opción 2
-elif opcion == "Hacer un ejercicio de respiración":
-    if st.button("Empezar ejercicio de respiración"):
-        st.write("Inhala profundamente... 🫁")
-        st.sleep(2)
-        st.write("Mantén el aire...")
-        st.sleep(2)
-        st.write("Exhala lentamente... 😌")
-        st.sleep(3)
-        st.success("Muy bien. Puedes repetirlo cuando lo necesites.")
-        registrar_emocion("respiración", "Ejercicio hecho")
-
-# Opción 3
-elif opcion == "Recibir un consejo positivo":
-    consejo = random.choice(frases_positivas)
-    st.success(f"🌟 Consejo del día: {consejo}")
-    registrar_emocion("consejo", consejo)
+    # Añadir respuesta del bot
+    st.session_state.chat.append(f"<div style='color:green'><b>Bot:</b> {respuesta}</div>")
+    st.experimental_rerun()
