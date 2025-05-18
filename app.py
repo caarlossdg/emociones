@@ -33,12 +33,14 @@ st.write("Habla conmigo sobre lo que sientas:")
 for mensaje in st.session_state.chat:
     st.markdown(mensaje, unsafe_allow_html=True)
 
-# --- Input del usuario ---
-entrada = st.text_input("Escribe aquí y presiona Enter:", key="input_text")
+# --- Entrada del usuario con botón ---
+with st.form("chat_form", clear_on_submit=True):
+    entrada = st.text_input("Escribe aquí:", key="input_text")
+    enviar = st.form_submit_button("Enviar")
 
-# --- Procesar mensaje si se escribe algo nuevo ---
-if entrada and st.session_state.get("input_submitted", False) == False:
-    # Mostrar mensaje del usuario
+# --- Procesar entrada ---
+if enviar and entrada:
+    # Mostrar entrada del usuario
     st.session_state.chat.append(f"<div style='color:blue'><b>Tú:</b> {entrada}</div>")
 
     # Analizar emoción
@@ -50,14 +52,5 @@ if entrada and st.session_state.get("input_submitted", False) == False:
     else:
         respuesta = random.choice(respuestas_neutrales)
 
-    # Mostrar respuesta del bot
+    # Añadir respuesta del bot
     st.session_state.chat.append(f"<div style='color:green'><b>Bot:</b> {respuesta}</div>")
-
-    # Marcar como enviado y limpiar input
-    st.session_state.input_submitted = True
-    st.experimental_rerun()
-
-# --- Resetear input para permitir más mensajes ---
-if st.session_state.get("input_submitted", False):
-    st.session_state.input_submitted = False
-    st.session_state.input_text = ""
