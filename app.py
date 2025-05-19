@@ -1,56 +1,58 @@
 import streamlit as st
-from transformers import pipeline
-import os
+import requests
 
-# Cargar token desde secrets
+# Token privado de Hugging Face
 token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
 
-# Cargar modelo de Hugging Face
-@st.cache_resource
-def cargar_modelo():
-    return pipeline(
-        "text-generation",
-        model="HuggingFaceH4/zephyr-7b-beta",
-        tokenizer="HuggingFaceH4/zephyr-7b-beta",
-        use_auth_token=token,
-        max_new_tokens=200,
-        do_sample=True,
-        temperature=0.7,
-        top_k=50,
-        top_p=0.95
-    )
+# Modelo ligero en español (puedes cambiarlo si quieres)
+modelo = "tiiuae/falcon-rw-1b"  # o prueba "mistralai/Mistral-7B-Instruct"
 
-generador = cargar_modelo()
+headers = {
+    "Authorization": f"Bearer {token}"
+}
 
-# Interfaz
-st.set_page_config(page_title="Psicólogo IA", page_icon="🧠")
-st.title("🧠 Chat psicológico en Español")
-st.write("Habla conmigo sobre cómo te sientes. Estoy aquí para escucharte y ayudarte.")
+API_URL = f"https://api-inference.huggingface.co/models/{modelo}"
 
-# Historial
+def generar_respuesta(prompt):
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 150,
+            "temperature": 0.7,
+            "top_k": 50,
+            "top_p": 0.95
+        }
+    }
+    response = requests.post(API_URL, headers=headers, json=payload)
+    result = response.json()
+    if isinstance(result, list):
+        return result[0]["generated_text"].split("Psicólogo:")[-1].strip()
+    else:
+        return "Lo siento, no pude generar una respuesta en este momento."
+
+# Interfaz Streamlit
+st.set_page_config(page_title="Psicólogo IA (API)", page_icon="💬")
+st.title("🧠 Chat emocional en Español (IA)")
+st.write("Responde como un psicólogo empático gracias a IA de Hugging Face.")
+
 if "historial" not in st.session_state:
     st.session_state.historial = []
 
-for mensaje in st.session_state.historial:
-    st.markdown(mensaje, unsafe_allow_html=True)
+for m in st.session_state.historial:
+    st.markdown(m, unsafe_allow_html=True)
 
-# Entrada
-with st.form("formulario_chat", clear_on_submit=True):
+with st.form("form"):
     entrada = st.text_input("Tú:", key="entrada")
     enviar = st.form_submit_button("Enviar")
 
 if enviar and entrada:
     st.session_state.historial.append(f"<div style='color:blue'><b>Tú:</b> {entrada}</div>")
 
-    # Prompt empático
-    prompt = f"""Actúa como un psicólogo empático que habla español. 
-Tu tarea es consolar, escuchar, y dar apoyo emocional. 
-Si el usuario se siente mal, responde con comprensión, ánimo y calidez. 
-Si el mensaje es positivo, alégrate con él. 
-Usa un tono cercano y profesional. 
+    prompt = f"""Actúa como un psicólogo empático que responde en español.
+Responde con comprensión si detectas tristeza, y con alegría si detectas positividad.
 
 Usuario: {entrada}
 Psicólogo:"""
 
-    respuesta = generador(prompt)[0]["generated_text"].split("Psicólogo:")[-1].strip()
+    respuesta = generar_respuesta(prompt)
     st.session_state.historial.append(f"<div style='color:green'><b>Psicobot:</b> {respuesta}</div>")
