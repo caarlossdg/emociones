@@ -1,64 +1,54 @@
 import streamlit as st
-from textblob import TextBlob
-import random
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+import os
 
-# Frases base
-respuestas_tristeza = [
-    "💙 Siento que te sientas así. ¿Quieres contarme más?",
-    "🌧️ Es normal sentirse así a veces. Estoy contigo.",
-    "🫂 Aquí estoy, cuéntame lo que necesites."
-]
-respuestas_alegria = [
-    "😊 Me alegra mucho oír eso.",
-    "🎉 ¡Genial! Cuéntame más si quieres.",
-    "🌞 Me gusta verte así de bien."
-]
-respuestas_neutrales = [
-    "Gracias por compartirlo. ¿Qué más quieres contarme?",
-    "Estoy aquí escuchándote.",
-    "¿Y cómo te sientes con eso?"
-]
-respuestas_ayuda = [
-    "🛟 Claro que sí, ¿en qué puedo ayudarte?",
-    "Estoy aquí para ti, dime qué necesitas.",
-    "💡 Intentaré ayudarte lo mejor que pueda, cuéntame más."
-]
+# Autenticación con Hugging Face
+# Asegúrate de reemplazar 'TU_TOKEN_AQUI' con tu token de acceso personal
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = "TU_TOKEN_AQUI"
 
-# Inicializar chat
-if "chat" not in st.session_state:
-    st.session_state.chat = []
+# Cargar el modelo y el tokenizador
+model_name = "ITG/DialoGPT-medium-spanish-chitchat"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
 
-# Título
-st.title("🧠 Chat emocional")
-st.write("Habla conmigo sobre lo que sientas:")
+# Configurar la página de Streamlit
+st.set_page_config(page_title="Chatbot en Español", page_icon="🤖")
+st.title("🤖 Chatbot en Español")
+st.write("Interactúa con un modelo de lenguaje en español.")
 
-# Formulario de entrada
-with st.form("chat_form", clear_on_submit=True):
-    entrada = st.text_input("Escribe aquí:", key="input_text")
+# Inicializar el historial de conversación
+if "historial" not in st.session_state:
+    st.session_state.historial = []
+
+# Mostrar el historial de conversación
+for mensaje in st.session_state.historial:
+    st.markdown(mensaje, unsafe_allow_html=True)
+
+# Entrada del usuario
+with st.form(key="formulario_chat"):
+    entrada_usuario = st.text_input("Escribe tu mensaje:", "")
     enviar = st.form_submit_button("Enviar")
 
-# Procesar entrada
-if enviar and entrada:
-    entrada = entrada.strip()
-    st.session_state.chat.append(f"<div style='color:blue'><b>Tú:</b> {entrada}</div>")
+# Procesar la entrada del usuario
+if enviar and entrada_usuario:
+    # Mostrar el mensaje del usuario
+    st.session_state.historial.append(f"<div style='color:blue'><b>Tú:</b> {entrada_usuario}</div>")
 
-    entrada_lower = entrada.lower()
+    # Codificar la entrada del usuario
+    entrada_ids = tokenizer.encode(entrada_usuario + tokenizer.eos_token, return_tensors="pt")
 
-    # Detectar intención por palabras clave
-    if "ayuda" in entrada_lower or "puedes" in entrada_lower or "me podrías" in entrada_lower:
-        respuesta = random.choice(respuestas_ayuda)
-    else:
-        # Usar TextBlob como apoyo
-        analisis = TextBlob(entrada).sentiment
-        if analisis.polarity < -0.2:
-            respuesta = random.choice(respuestas_tristeza)
-        elif analisis.polarity > 0.2:
-            respuesta = random.choice(respuestas_alegria)
-        else:
-            respuesta = random.choice(respuestas_neutrales)
+    # Generar la respuesta del modelo
+    respuesta_ids = model.generate(
+        entrada_ids,
+        max_length=1000,
+        pad_token_id=tokenizer.eos_token_id,
+        do_sample=True,
+        top_k=50,
+        top_p=0.95,
+        temperature=0.7
+    )
 
-    st.session_state.chat.append(f"<div style='color:green'><b>Bot:</b> {respuesta}</div>")
-
-# Mostrar historial después de procesar
-for mensaje in st.session_state.chat:
-    st.markdown(mensaje, unsafe_allow_html=True)
+    # Decodificar y mostrar la respuesta del bot
+    respuesta = tokenizer.decode(respuesta_ids[:, entrada_ids.shape[-1]:][0], skip_special_tokens=True)
+    st.session_state.historial.append(f"<div style='color:green'><b>Bot:</b> {respuesta}</div>")
